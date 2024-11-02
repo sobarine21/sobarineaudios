@@ -17,7 +17,7 @@ def convert_text_to_audio(text):
     return audio_file
 
 def main():
-    st.title("Singing Audio Generator from Lyrics PDF")
+    st.title("Podcast creator")
     
     uploaded_file = st.file_uploader("Upload content pdf", type="pdf")
 
