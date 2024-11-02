@@ -19,7 +19,7 @@ def convert_text_to_audio(text):
 def main():
     st.title("Singing Audio Generator from Lyrics PDF")
     
-    uploaded_file = st.file_uploader("Upload a PDF file containing lyrics", type="pdf")
+    uploaded_file = st.file_uploader("Upload content pdf", type="pdf")
 
     if uploaded_file is not None:
         # Extract text from the PDF
@@ -31,13 +31,13 @@ def main():
         st.subheader("Extracted Lyrics:")
         st.write(lyrics)
 
-        if st.button("Generate Singing Audio"):
+        if st.button("Generate podcast Audio"):
             audio_file = convert_text_to_audio(lyrics)
             st.success("Audio generated successfully!")
 
             # Provide option to download the audio file
             with open(audio_file, "rb") as f:
-                st.download_button("Download Singing Audio", f, file_name="singing_audio.mp3")
+                st.download_button("Download podcast Audio", f, file_name="podcast_audio.mp3")
 
             # Optionally play audio in the app
             st.audio(audio_file)
