@@ -1,3 +1,1 @@
-streamlit
-PyPDF2
-gTTS
+npm install express multer pdf-parse google-tts-api
