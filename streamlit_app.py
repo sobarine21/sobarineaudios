@@ -1,49 +1,86 @@
-import streamlit as st
-import PyPDF2
-from gtts import gTTS
-import os
+const express = require('express');
+const multer = require('multer');
+const fs = require('fs');
+const pdfParse = require('pdf-parse');
+const googleTTS = require('google-tts-api');
+const path = require('path');
 
-def extract_text_from_pdf(pdf_file):
-    reader = PyPDF2.PdfReader(pdf_file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() + "\n"  # Adding newline for better formatting
-    return text
+// Create an instance of the Express application
+const app = express();
+const port = 3000;
 
-def convert_text_to_audio(text):
-    tts = gTTS(text=text, lang='en')
-    audio_file = 'output.mp3'
-    tts.save(audio_file)
-    return audio_file
+// Setup for file uploads
+const upload = multer({ dest: 'uploads/' });
 
-def main():
-    st.title("Podcast creator")
-    
-    uploaded_file = st.file_uploader("Upload content pdf", type="pdf")
+// Serve static files (e.g., audio files)
+app.use(express.static('public'));
 
-    if uploaded_file is not None:
-        # Extract text from the PDF
-        lyrics = extract_text_from_pdf(uploaded_file)
-        if not lyrics.strip():
-            st.error("No text found in the PDF.")
-            return
+// Home route for uploading PDF
+app.get('/', (req, res) => {
+  res.send(`
+    <h1>Podcast Creator</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <label>Upload content PDF:</label><br>
+      <input type="file" name="pdfFile" accept="application/pdf" required/><br><br>
+      <button type="submit">Upload PDF</button>
+    </form>
+  `);
+});
 
-        st.subheader("Extracted Lyrics:")
-        st.write(lyrics)
+// Route for uploading PDF and generating podcast
+app.post('/upload', upload.single('pdfFile'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send("No file uploaded.");
+  }
 
-        if st.button("Generate podcast Audio"):
-            audio_file = convert_text_to_audio(lyrics)
-            st.success("Audio generated successfully!")
+  try {
+    // Read and extract text from the uploaded PDF
+    const pdfData = fs.readFileSync(req.file.path);
+    const pdfText = await pdfParse(pdfData);
+    const text = pdfText.text.trim();
 
-            # Provide option to download the audio file
-            with open(audio_file, "rb") as f:
-                st.download_button("Download podcast Audio", f, file_name="podcast_audio.mp3")
+    if (!text) {
+      return res.status(400).send("No text found in the PDF.");
+    }
 
-            # Optionally play audio in the app
-            st.audio(audio_file)
+    // Generate audio from the extracted text
+    const audioUrl = await googleTTS.getAudioUrl(text, {
+      lang: 'en',
+      slow: false,
+      host: 'https://translate.google.com',
+    });
 
-            # Clean up the generated audio file after download
-            os.remove(audio_file)
+    // Save the audio file to the 'public' directory
+    const audioFileName = `podcast_${Date.now()}.mp3`;
+    const audioFilePath = path.join(__dirname, 'public', audioFileName);
 
-if __name__ == "__main__":
-    main()
+    // Download the audio file using Node.js 'request' or similar method
+    const download = require('node-fetch');
+    const response = await download(audioUrl);
+    const buffer = await response.buffer();
+    fs.writeFileSync(audioFilePath, buffer);
+
+    // Send the response back with a link to download the audio
+    res.send(`
+      <h2>Podcast Audio Generated!</h2>
+      <p>Click the link below to download your podcast:</p>
+      <a href="/${audioFileName}" download>Download Podcast Audio</a>
+      <br><br>
+      <audio controls>
+        <source src="/${audioFileName}" type="audio/mpeg">
+        Your browser does not support the audio element.
+      </audio>
+    `);
+  } catch (error) {
+    console.error("Error generating podcast:", error);
+    res.status(500).send("Error generating podcast.");
+  } finally {
+    // Clean up uploaded PDF file
+    fs.unlinkSync(req.file.path);
+  }
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Podcast Creator app running at http://localhost:${port}`);
+});
